@@ -7,7 +7,7 @@ import json
 def scan_packages(folder_name):
     packages = []
     for root, dirs, files in os.walk(folder_name):
-        if(root != folder_name and files):
+        if not root in (folder_name, files):
             packages.append(root.split(folder_name+os.sep,1)[1].replace(os.sep, '.'))
     return packages
 
