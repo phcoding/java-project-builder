@@ -6,7 +6,7 @@ import sys
 def find_project_root(project_file, filepath):
     def forward_walk(filepath):
         dirname = os.path.dirname(filepath)
-        if dirname != os.path.sep and dirname != os.path.splitdrive(dirname)[0]:
+        if dirname != os.path.join(os.path.splitdrive(dirname)[0], os.path.sep):
             yield dirname
             yield from forward_walk(os.path.dirname(filepath))
     project_root = os.path.dirname(filepath)
