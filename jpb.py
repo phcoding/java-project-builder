@@ -2,49 +2,57 @@
 
 import os
 import sys
-import json
 
-def scan_packages(folder_name):
-    packages = []
-    for root, dirs, files in os.walk(folder_name):
-        if not root in (folder_name, files):
-            packages.append(root.split(folder_name+os.sep,1)[1].replace(os.sep, '.'))
-    return packages
+def find_project_root(project_file, filepath):
+    def forward_walk(filepath):
+        dirname = os.path.dirname(filepath)
+        if dirname != os.path.join(os.path.splitdrive(dirname)[0], os.path.sep):
+            yield dirname
+            yield from forward_walk(os.path.dirname(filepath))
+    project_root = os.path.dirname(filepath)
+    for dirname in forward_walk(filepath):
+        if os.path.isfile(os.path.join(dirname, project_file)):
+            project_root = dirname
+            break
+    return project_root
 
-def load_config(filename):
-    project_root = os.path.dirname(filename)
-    try:
-        with open(filename, 'r') as fp:
-            project_conf = json.loads(fp.read())
-    except (IOError, json.JSONDecodeError):
-        project_conf = {
-            "project_name": os.path.split(project_root)[1],
-            "packages": scan_packages(project_root),
-            "main_class": ""
-            }
-    if len(project_conf.get('packages'))==0:
-        project_conf['packages'] = scan_packages(project_root)
-    return project_root, project_conf
+def compile_class_file(project_root, classpath):
+    cwd_tmp = os.getcwd()
+    os.chdir(project_root)
+    os.system('javac -encoding UTF-8 -d . '+classpath.replace('.', os.path.sep)+'.java')
+    os.chdir(cwd_tmp)
+
+def execute_main_class(project_root, classpath):
+    cwd_tmp = os.getcwd()
+    os.chdir(project_root)
+    os.system('java '+classpath)
+    os.chdir(cwd_tmp)
+
+def get_classpath(project_root, filepath):
+    class_file = filepath.split(project_root+os.sep)[1]
+    class_path = os.path.splitext(class_file)[0].replace(os.path.sep, '.')
+    return class_path
 
 def show_help():
-    print('''Usage:\tjpb\tproj_filename''')
+    print('''Usage: jpb    [options]    filename
+Options:
+    -c    only compile mode.
+    -e    only execute mode.''')
 
 def main():
     if len(sys.argv)>1:
-        project_filename = sys.argv[-1]
+        filepath = os.path.abspath(sys.argv[-1])
         modelist = sys.argv[1:-1]
-        if(os.path.isfile(project_filename)):
-            project_root, project_config = load_config(project_filename)
-            cwd_tmp = os.getcwd()
-            os.chdir(project_root)
+        if(os.path.isfile(filepath)):
+            project_root = find_project_root('java.project', filepath)
+            classpath = get_classpath(project_root, filepath)
             if '-c' in modelist or modelist==[]:
                 print('----------java Project Builder (Mode C)----------')
-                for package in project_config.get('packages'):
-                    print('Compiling package "'+package.replace('.', os.sep)+'"')
-                    os.system('javac -encoding UTF-8 -d . '+package.replace('.', os.sep)+os.sep+'*.java')
+                compile_class_file(project_root, classpath)
             if '-e' in modelist or modelist==[]:
-                os.system('java '+project_config.get('main_class'))
-            os.chdir(cwd_tmp)
+                execute_main_class(project_root, classpath)
+        else:
+            print('File "%s" not found !' % filepath)
     else:
         show_help()
 
