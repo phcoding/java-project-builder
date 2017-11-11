@@ -11,9 +11,8 @@
 '''
 
 import os
-import sys
 
-def find_project_root(project_file, filepath):
+def find_project_root(project_file, filepath, proroot='cwd'):
     '''
         Find project root dir accroding to mark-file name and given java file path.
 
@@ -31,7 +30,16 @@ def find_project_root(project_file, filepath):
         if dirname != os.path.join(os.path.splitdrive(dirname)[0], os.path.sep):
             yield dirname
             yield from forward_walk(os.path.dirname(filepath))
-    project_root = os.path.dirname(filepath)
+    filepath = os.path.abspath(filepath)
+    if proroot == 'cwd':
+        # set default project root to cwd.
+        project_root = os.getcwd()
+    elif proroot == 'pwd':
+        # set default project root to file directory.
+        project_root = os.path.dirname(filepath)
+    else:
+        # set default project root to pointed dir.
+        project_root = os.path.abspath(proroot)
     for dirname in forward_walk(filepath):
         if os.path.isfile(os.path.join(dirname, project_file)):
             project_root = dirname
@@ -70,7 +78,7 @@ def execute_main_class(project_root, classpath):
     os.system('java '+classpath)
     os.chdir(cwd_tmp)
 
-def get_classpath(project_root, filepath):
+def get_classpath(project_root, filepath, ):
     '''
         Get standerd classpath from project dir and java file path.
 
@@ -81,32 +89,7 @@ def get_classpath(project_root, filepath):
 
     return: [str]   standerd classpath of java file like `com.hello.Hello`.
     '''
-    class_file = filepath.split(project_root+os.sep)[1]
+    filepath = os.path.abspath(filepath)
+    class_file = filepath.split(os.path.abspath(os.path.join(project_root,'%{mark}%')).split('%{mark}%')[0])[1]
     class_path = os.path.splitext(class_file)[0].replace(os.path.sep, '.')
     return class_path
-
-def show_help():
-    print('''Usage: jpb    [options]    filename
-Options:
-    -c    only compile mode.
-    -e    only execute mode.''')
-
-def main():
-    if len(sys.argv)>1:
-        filepath = os.path.abspath(sys.argv[-1])
-        modelist = sys.argv[1:-1]
-        if(os.path.isfile(filepath)):
-            project_root = find_project_root('java.project', filepath)
-            classpath = get_classpath(project_root, filepath)
-            if '-c' in modelist or modelist==[]:
-                print('----------java Project Builder (Mode C)----------')
-                compile_class_file(project_root, classpath)
-            if '-e' in modelist or modelist==[]:
-                execute_main_class(project_root, classpath)
-        else:
-            print('File "%s" not found !' % filepath)
-    else:
-        show_help()
-
-if __name__ == '__main__':
-    main()
